@@ -50,6 +50,7 @@ struct minstrel_mcs_group_data {
 	struct minstrel_rate_stats rates[MCS_GROUP_RATES];
 };
 
+//BMK
 struct minstrel_ht_sta {
 	struct ieee80211_sta *sta;
 
@@ -73,7 +74,10 @@ struct minstrel_ht_sta {
 
 	unsigned int total_packets;
 	unsigned int sample_packets;
+	//OUR CODE
+	// unsigned int total_acks[MAX_THR_RATES] = {0};
 
+	//
 	/* tx flags to add for frames for this sta */
 	u32 tx_flags;
 
