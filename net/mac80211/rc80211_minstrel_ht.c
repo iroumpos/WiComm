@@ -232,6 +232,41 @@ const struct mcs_group minstrel_mcs_groups[] = {
 
 static u8 sample_table[SAMPLE_COLUMNS][MCS_GROUP_RATES] __read_mostly;
 
+
+//// OUR CODE ////
+
+static void update_rate(struct minstrel_ht_sta *mi, struct minstrel_rate_stats *stats)
+{
+	int i, best_rate, best_tp = 0;
+
+	/* Iterate through each rate and evaluate its performance */
+	for (i = 0; i < MCS_GROUP_RATES; i++)
+	{
+		int tp;
+
+		/* Calculate the throughput for the current rate */
+		tp = minstrel_ht_get_tp_avg(mi, i / MCS_GROUP_RATES,
+									i % MCS_GROUP_RATES);
+
+		/* Check if the current rate has higher throughput than the best rate */
+		if (tp > best_tp)
+		{
+			best_tp = tp;
+			best_rate = i;
+		}
+	}
+
+	/* Update the long-term MCS with the best rate */
+	mi->cur_tp_rate = best_rate;
+	stats->consecutive_success = 0;
+	stats->consecutive_failures = 0;
+	stats->consecutive_retries = 0;
+	
+	/* Print debug information or perform other actions if needed */
+	printk("New long-term MCS: %d\n", best_rate);
+}
+
+
 static void
 minstrel_ht_update_rates(struct minstrel_priv *mp, struct minstrel_ht_sta *mi);
 
@@ -723,6 +758,7 @@ minstrel_aggr_check(struct ieee80211_sta *pubsta, struct sk_buff *skb)
 	ieee80211_start_tx_ba_session(pubsta, tid, 0);
 }
 
+//BMK
 static void
 minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
                       void *priv_sta, struct ieee80211_tx_status *st)
@@ -735,6 +771,9 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 	struct minstrel_priv *mp = priv;
 	bool last, update = false;
 	int i;
+	//
+	int ackNum=0;
+	//
 
 	if (!msp->is_ht)
 		return mac80211_minstrel.tx_status_ext(priv, sband,
@@ -761,6 +800,8 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 		mi->sample_tries = 1;
 		mi->sample_count--;
 	}
+
+
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 		mi->sample_packets += info->status.ampdu_len;
@@ -803,6 +844,18 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 		update = true;
 		minstrel_ht_update_stats(mp, mi);
 	}
+
+
+	//OUR CODE
+	//count acks
+	if(info->flags & IEEE80211_TX_STAT_ACK)
+		ackNum++;
+
+	//calc packet error rate
+	int per = (mi->total_packet - ackNum) / mi->total_packet
+	
+	//
+
 
 	if (update)
 		minstrel_ht_update_rates(mp, mi);
