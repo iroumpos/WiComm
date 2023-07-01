@@ -848,9 +848,28 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 
 	//OUR CODE
 	//count acks
-	if(info->flags & IEEE80211_TX_STAT_ACK)
-		ackNum++;
+	//get current rate
+	rate = minstrel_ht_get_stats(mp, mi, &ar[0]);
+	
+	//
+	if(info->flags & IEEE80211_TX_STAT_ACK){
+		// ackNum++;
+		//update stats
+		rate->consecutive_success++;
+		rate->consecutive_failures = 0;
+		
 
+		if(rate->consecutive_success == 10)
+			rate->
+	}
+	else{
+		rate->consecutive_failures++;
+		rate->consecutive_success = 0
+
+		if(rate->consecutive_failures == 4)
+	}
+
+	rate->consecutive_failures
 	//calc packet error rate
 	int per = (mi->total_packet - ackNum) / mi->total_packet
 	
@@ -925,7 +944,7 @@ minstrel_calc_retransmit(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 	         (++mrs->retry_count < mp->max_retry));
 }
 
-
+//BMK
 static void
 minstrel_ht_set_rate(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
                      struct ieee80211_sta_rates *ratetbl, int offset, int index)
@@ -1134,6 +1153,7 @@ minstrel_get_sample_rate(struct minstrel_priv *mp, struct minstrel_ht_sta *mi)
 	return sample_idx;
 }
 
+//BMK3
 static void
 minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
                      struct ieee80211_tx_rate_control *txrc)
