@@ -771,8 +771,9 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 	struct minstrel_priv *mp = priv;
 	bool last, update = false;
 	int i;
-	//
-	int ackNum=0;
+	
+	//init probe counter
+	info->probe_counter = 0;
 	//
 
 	if (!msp->is_ht)
@@ -818,7 +819,7 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 
 		rate->attempts += ar[i].count * info->status.ampdu_len;
 	}
-
+	
 	/*
 	 * check for sudden death of spatial multiplexing,
 	 * downgrade to a lower number of streams if necessary.
@@ -860,18 +861,29 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 		
 
 		if(rate->consecutive_success == 10)
-			rate->
+			mi->last_stats_update = 90;
 	}
 	else{
 		rate->consecutive_failures++;
 		rate->consecutive_success = 0
 
 		if(rate->consecutive_failures == 4)
+			mi->last_stats_update = 10;
+
 	}
 
-	rate->consecutive_failures
-	//calc packet error rate
-	int per = (mi->total_packet - ackNum) / mi->total_packet
+	if(rate->consecutive_failures == 2){
+		//recovery
+		minstrel_downgrade_rate(mi, &mi->max_tp_rate[0], true);
+		//update set to true
+		update = true;
+
+		mi->last_stats_update = 30;
+	}
+		
+	// rate->consecutive_failures
+	// //calc packet error rate
+	// int per = (mi->total_packet - ackNum) / mi->total_packet
 	
 	//
 
@@ -1180,6 +1192,10 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 		return;
 #endif
 
+	//OUR CODE
+	minstrel_ht_update_rates(mp, mi);
+	//
+
 	/* Don't use EAPOL frames for sampling on non-mrr hw */
 	if (mp->hw->max_rates == 1 &&
 	    (info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO))
@@ -1205,7 +1221,11 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 	    (sample_idx >= 4) != txrc->short_preamble)
 		return;
 
-	info->flags |= IEEE80211_TX_CTL_RATE_CTRL_PROBE;
+
+
+
+	//commented out
+	// info->flags |= IEEE80211_TX_CTL_RATE_CTRL_PROBE;
 	rate->count = 1;
 
 	if (sample_group == &minstrel_mcs_groups[MINSTREL_CCK_GROUP]) {
@@ -1219,6 +1239,71 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 	}
 
 	rate->flags = sample_group->flags;
+
+	if(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE){
+		info->probe_counter++;
+
+		//if first probe
+		if(info->probe_counter == 1){
+			
+			rate[1].idx += 1;
+			rate[1].count = 2;
+
+			rate[2].idx = rate[0].idx;
+			rate[2].count = 2;
+
+			rate[3].idx -= 1;
+			rate[3].count = 2;
+
+			mi->last_stats_update = 10;
+
+		}
+		else{
+			mi->last_stats_update = 60;
+			if(rate[0].idx >= 0 && rate[0].idx <= 7){
+				rate[1].idx += 8;
+				rate[1].count = 2;
+
+				rate[2].idx += 7;
+				rate[2].count = 2;
+
+				rate[3].idx = rate[0].idx;
+				rate[3].count = 2;
+
+
+			}
+			else if(rate[0].idx >= 8 && rate[0].idx <= 15){
+				rate[1].idx = rate[0].idx;
+				rate[1].count = 2;
+
+				rate[2].idx -= 7;
+				rate[2].count = 2;
+
+				rate[3].idx -= 8;
+				rate[3].count = 2; 	
+			}
+
+		} 
+
+	}
+	else{// tx() ==  true //evaluation skipped
+		
+		rate[1].idx = rate[0].idx;
+		rate[1].count = 2;
+
+		rate[0].idx = rate[3].idx;
+		rate[0].count = 4;
+
+		rate[2].idx -= 1;
+		rate[2].count = 2;
+
+		rate[3].idx -= 1;
+		rate[3].count = 2; 	
+
+	}
+
+
+
 }
 
 static void
