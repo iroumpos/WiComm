@@ -234,6 +234,9 @@ static u8 sample_table[SAMPLE_COLUMNS][MCS_GROUP_RATES] __read_mostly;
 
 
 //// OUR CODE ////
+//OUR CODE
+u8 probe_counter=0;
+//
 
 static void update_rate(struct minstrel_ht_sta *mi, struct minstrel_rate_stats *stats)
 {
@@ -245,8 +248,7 @@ static void update_rate(struct minstrel_ht_sta *mi, struct minstrel_rate_stats *
 		int tp;
 
 		/* Calculate the throughput for the current rate */
-		tp = minstrel_ht_get_tp_avg(mi, i / MCS_GROUP_RATES,
-									i % MCS_GROUP_RATES);
+		tp = minstrel_ht_get_tp_avg(mi, i / MCS_GROUP_RATES,i % MCS_GROUP_RATES,mi->groups[i / MCS_GROUP_RATES].rates[i % MCS_GROUP_RATES].prob_ewma);
 
 		/* Check if the current rate has higher throughput than the best rate */
 		if (tp > best_tp)
@@ -257,7 +259,7 @@ static void update_rate(struct minstrel_ht_sta *mi, struct minstrel_rate_stats *
 	}
 
 	/* Update the long-term MCS with the best rate */
-	mi->cur_tp_rate = best_rate;
+	mi->max_tp_rate[0] = best_rate;
 	stats->consecutive_success = 0;
 	stats->consecutive_failures = 0;
 	stats->consecutive_retries = 0;
@@ -773,7 +775,7 @@ minstrel_ht_tx_status(void *priv, struct ieee80211_supported_band *sband,
 	int i;
 	
 	//init probe counter
-	info->probe_counter = 0;
+	probe_counter = 0;
 	//
 
 	if (!msp->is_ht)
@@ -1240,11 +1242,13 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 
 	rate->flags = sample_group->flags;
 
+
+	// update_rate
 	if(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE){
-		info->probe_counter++;
+		probe_counter++;
 
 		//if first probe
-		if(info->probe_counter == 1){
+		if(probe_counter == 1){
 			
 			rate[1].idx += 1;
 			rate[1].count = 2;

@@ -1003,9 +1003,7 @@ struct ieee80211_tx_info {
 	u8 hw_queue;
 
 	u16 ack_frame_id;
-	//OUR CODE
-	u8 probe_counter;
-	//
+
 	union {
 		struct {
 			union {
